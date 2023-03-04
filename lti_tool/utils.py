@@ -75,7 +75,14 @@ class DjangoToolConfig(ToolConfAbstract):
             )
             return _prepare_deployment(self.deployment)
         except LtiDeployment.DoesNotExist:
-            return None
+            registration = self.find_registration_by_issuer(iss=iss)
+            registration = LtiRegistration.objects.get(issuer=iss)
+            deployment = LtiDeployment(
+                registration=registration, deployment_id=deployment_id, is_active=True
+            )
+            deployment.save()
+            self.deployment = deployment
+            return _prepare_deployment(self.deployment)
 
     def find_deployment_by_params(self, iss, deployment_id, client_id, *args, **kwargs):
         lookups = {
@@ -90,7 +97,13 @@ class DjangoToolConfig(ToolConfAbstract):
             self.deployment = LtiDeployment.objects.active().get(**lookups)
             return _prepare_deployment(self.deployment)
         except LtiDeployment.DoesNotExist:
-            return None
+            registration = LtiRegistration.objects.get(issuer=iss, client_id=client_id)
+            deployment = LtiDeployment(
+                registration=registration, deployment_id=deployment_id, is_active=True
+            )
+            deployment.save()
+            self.deployment = deployment
+            return _prepare_deployment(self.deployment)
 
 
 def normalize_role(role: str) -> str:
