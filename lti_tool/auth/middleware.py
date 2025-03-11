@@ -93,7 +93,10 @@ class LtiLaunchAuthenticationMiddleware:
                 " before the LtiLaunchAuthenticationMiddleware class."
             )
         try:
-            username = request.lti_launch.user.sub
+            if hasattr(settings, 'LTI_TOOL') and settings.LTI_TOOL.get("use_person_sourcedid", False):
+                username = request.lti_launch.get_claim("https://purl.imsglobal.org/spec/lti/claim/lis").get("person_sourcedid")
+            else:
+                username = request.lti_launch.user.sub
         except AttributeError:
             # If the LTI launch user doesn't exist then remove any existing
             # authenticated remote-user, or return (leaving request.user set to
