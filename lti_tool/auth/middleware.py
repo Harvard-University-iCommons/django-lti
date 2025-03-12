@@ -1,6 +1,7 @@
 from django.contrib import auth
 from django.contrib.auth import load_backend
 from django.core.exceptions import ImproperlyConfigured
+from django.conf import settings
 
 from asgiref.sync import iscoroutinefunction, markcoroutinefunction
 
@@ -16,7 +17,7 @@ class LtiLaunchAuthenticationMiddleware:
     middleware list.
 
     If request.user is not authenticated, then this middleware attempts to
-    authenticate the username from ``request.lti_launch.user.sub``.
+    authenticate the username from either the person_sourcedid or ``request.lti_launch.user.sub`` depending on settings.
 
     If authentication is successful, the user is automatically logged in to
     persist the user in the session.
@@ -26,7 +27,7 @@ class LtiLaunchAuthenticationMiddleware:
     sync_capable = True
     async_capable = True
 
-    def __init__(self, get_response):
+    def __init__(self, get_response, is_async=False):
         if get_response is None:
             raise ValueError("get_response must be provided.")
         self.get_response = get_response
@@ -50,7 +51,10 @@ class LtiLaunchAuthenticationMiddleware:
                 " before the LtiLaunchAuthenticationMiddleware class."
             )
         try:
-            username = request.lti_launch.user.sub
+            if hasattr(settings, 'LTI_TOOL') and settings.LTI_TOOL.get("use_person_sourcedid", False):
+                username = request.lti_launch.get_claim("https://purl.imsglobal.org/spec/lti/claim/lis").get("person_sourcedid")
+            else:
+                username = request.lti_launch.user.sub
         except AttributeError:
             # If the LTI launch user doesn't exist then remove any existing
             # authenticated remote-user, or return (leaving request.user set to
@@ -71,7 +75,7 @@ class LtiLaunchAuthenticationMiddleware:
 
         # We are seeing this user for the first time in this session, attempt
         # to authenticate the user.
-        user = auth.authenticate(request, lti_launch_user_id=username)
+        user = auth.authenticate(request=request, lti_launch_user_id=username)
         if user:
             # User is valid.  Set request.user and persist user in the session
             # by logging the user in.
@@ -90,7 +94,10 @@ class LtiLaunchAuthenticationMiddleware:
                 " before the LtiLaunchAuthenticationMiddleware class."
             )
         try:
-            username = request.lti_launch.user.sub
+            if hasattr(settings, 'LTI_TOOL') and settings.LTI_TOOL.get("use_person_sourcedid", False):
+                username = request.lti_launch.get_claim("https://purl.imsglobal.org/spec/lti/claim/lis").get("person_sourcedid")
+            else:
+                username = request.lti_launch.user.sub
         except AttributeError:
             # If the LTI launch user doesn't exist then remove any existing
             # authenticated remote-user, or return (leaving request.user set to
